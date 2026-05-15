@@ -1,0 +1,18 @@
+services:
+  disk-stats:
+    image: python:3.12-alpine3.23
+    container_name: kometa-sidecar-disk-stats
+    environment:
+      - TZ=${TZ}
+      - KOMETA_TIME=${KOMETA_TIME}
+      - DATA_PATH=/data
+      - MOVIES_PATH=/data/media/movies
+      - TV_PATH=/data/media/tv
+    volumes:
+      - /path/to/your/kometa/config:/config
+      - /data:/data:ro
+    command: >
+      sh -c "apk add --no-cache ttf-dejavu &&
+             pip install pillow ruamel.yaml --quiet --no-cache-dir &&
+             python3 /config/generate_poster.py"
+    restart: unless-stopped
