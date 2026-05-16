@@ -4,7 +4,7 @@ collections:
     sort_title: "!001_Disk Usage"
     visible_home: false
     visible_shared: false
-    visible_library: true
+    visible_library: false
     sync_mode: sync
     summary: "Stats will appear here after the first run."
     file_poster: /config/disk_poster.jpg
