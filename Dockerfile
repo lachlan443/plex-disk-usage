@@ -2,12 +2,17 @@ FROM python:3.12-alpine3.23
 
 RUN apk add --no-cache ttf-dejavu curl
 
-ARG SUPERCRONIC_URL=https://github.com/aptible/supercronic/releases/download/v0.2.29/supercronic-linux-amd64
-ARG SUPERCRONIC_SHA1SUM=cd48d45c4b10f3f0bfdd3a57d054cd05ac96812b
-RUN curl -fsSLO "$SUPERCRONIC_URL" \
-    && echo "${SUPERCRONIC_SHA1SUM}  supercronic-linux-amd64" | sha1sum -c - \
-    && chmod +x supercronic-linux-amd64 \
-    && mv supercronic-linux-amd64 /usr/local/bin/supercronic
+ARG SUPERCRONIC_VERSION=v0.2.29
+ARG TARGETARCH
+RUN case "${TARGETARCH}" in \
+      amd64) SHA1=cd48d45c4b10f3f0bfdd3a57d054cd05ac96812b ;; \
+      arm64) SHA1=512f6736450c56555e01b363144c3c9d23abed4c ;; \
+      *) echo "Unsupported architecture: ${TARGETARCH}" && exit 1 ;; \
+    esac \
+    && curl -fsSL "https://github.com/aptible/supercronic/releases/download/${SUPERCRONIC_VERSION}/supercronic-linux-${TARGETARCH}" \
+       -o /usr/local/bin/supercronic \
+    && echo "${SHA1}  /usr/local/bin/supercronic" | sha1sum -c - \
+    && chmod +x /usr/local/bin/supercronic
 
 RUN pip install --no-cache-dir pillow ruamel.yaml
 
