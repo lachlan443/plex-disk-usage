@@ -1,15 +1,10 @@
 import os
 import subprocess
-import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 from ruamel.yaml import YAML
 
 CONFIG_DIR  = "/config"
-
-def log(msg):
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {msg}", flush=True)
-
 POSTER_PATH = f"{CONFIG_DIR}/disk_poster.jpg"
 YAML_PATH   = f"{CONFIG_DIR}/disk_usage.yml"
 FONT        = "/usr/share/fonts/TTF/DejaVuSans.ttf"
@@ -24,6 +19,10 @@ BAR_BG = "#2a2a3a"
 DATA_PATH   = os.environ.get("DATA_PATH",   "/data")
 MOVIES_PATH = os.environ.get("MOVIES_PATH", "/data/media/movies")
 TV_PATH     = os.environ.get("TV_PATH",     "/data/media/tv")
+
+
+def log(msg):
+    print(f"[{datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}] [INFO] {msg}", flush=True)
 
 
 def df_stats(path):
@@ -101,29 +100,10 @@ def update_yaml(s):
         yaml.dump(data, f)
 
 
-def next_sleep_secs():
-    times_str = os.environ.get("KOMETA_TIME", "00:00, 06:00, 12:00, 18:00")
-    now       = datetime.now()
-    candidates = []
-    for t in times_str.split(","):
-        h, m = map(int, t.strip().split(":"))
-        base = now.replace(hour=h, minute=m, second=0, microsecond=0)
-        candidates += [base, base + timedelta(days=1)]
-    # Require next run to be >5 min away so wake_at is always in the future
-    next_run = min(r for r in candidates if r > now + timedelta(minutes=5))
-    wake_at  = next_run - timedelta(minutes=5)
-    return (wake_at - now).total_seconds(), wake_at
-
-
-while True:
-    s = get_stats()
-    generate_poster(s["used_pct"])
-    update_yaml(s)
-    log(
-        f"Done: {s['used_pct']}% used ({s['used_tb']:.1f} / {s['total_tb']:.1f} TB) | "
-        f"Movies {s['movies_tb']:.1f} TB  TV {s['tv_tb']:.1f} TB  Other {s['other_tb']:.1f} TB"
-    )
-
-    secs, wake_at = next_sleep_secs()
-    log(f"Sleeping until {wake_at.strftime('%Y-%m-%d %H:%M')} ({secs / 3600:.1f}h)")
-    time.sleep(secs)
+s = get_stats()
+generate_poster(s["used_pct"])
+update_yaml(s)
+log(
+    f"Done: {s['used_pct']}% used ({s['used_tb']:.1f} / {s['total_tb']:.1f} TB) | "
+    f"Movies {s['movies_tb']:.1f} TB  TV {s['tv_tb']:.1f} TB  Other {s['other_tb']:.1f} TB"
+)
