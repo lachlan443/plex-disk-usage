@@ -6,6 +6,10 @@ from PIL import Image, ImageDraw, ImageFont
 from ruamel.yaml import YAML
 
 CONFIG_DIR  = "/config"
+
+def log(msg):
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {msg}", flush=True)
+
 POSTER_PATH = f"{CONFIG_DIR}/disk_poster.jpg"
 YAML_PATH   = f"{CONFIG_DIR}/disk_usage.yml"
 FONT        = "/usr/share/fonts/TTF/DejaVuSans.ttf"
@@ -37,6 +41,7 @@ def du_bytes(path):
 
 
 def get_stats():
+    log("Checking disk usage")
     used, total, used_pct = df_stats(DATA_PATH)
     movies = du_bytes(MOVIES_PATH)
     tv     = du_bytes(TV_PATH)
@@ -59,6 +64,7 @@ def get_stats():
 
 
 def generate_poster(used_pct):
+    log("Generating poster")
     W, H = 1000, 1500
     img  = Image.new("RGB", (W, H), BG)
     draw = ImageDraw.Draw(img)
@@ -77,6 +83,7 @@ def generate_poster(used_pct):
 
 
 def update_yaml(s):
+    log("Updating collection YAML")
     now     = datetime.now().strftime("%b %d %Y %H:%M")
     summary = (
         f"{s['used_pct']}% used ({s['used_tb']:.1f} / {s['total_tb']:.1f} TB) | Movies {s['movies_tb']:.1f} TB ({s['movies_pct']:.0f}%) · TV {s['tv_tb']:.1f} TB ({s['tv_pct']:.0f}%) · Other {s['other_tb']:.1f} TB ({s['other_pct']:.0f}%)\n"
@@ -102,21 +109,21 @@ def next_sleep_secs():
         h, m = map(int, t.strip().split(":"))
         base = now.replace(hour=h, minute=m, second=0, microsecond=0)
         candidates += [base, base + timedelta(days=1)]
-    next_run = min(r for r in candidates if r > now)
+    # Require next run to be >5 min away so wake_at is always in the future
+    next_run = min(r for r in candidates if r > now + timedelta(minutes=5))
     wake_at  = next_run - timedelta(minutes=5)
-    return max(0, (wake_at - now).total_seconds()), wake_at
+    return (wake_at - now).total_seconds(), wake_at
 
 
 while True:
     s = get_stats()
     generate_poster(s["used_pct"])
     update_yaml(s)
-    print(
-        f"[disk-stats] {s['used_pct']}% used | "
-        f"Movies {s['movies_tb']:.1f}TB · TV {s['tv_tb']:.1f}TB · Other {s['other_tb']:.1f}TB",
-        flush=True,
+    log(
+        f"Done: {s['used_pct']}% used ({s['used_tb']:.1f} / {s['total_tb']:.1f} TB) | "
+        f"Movies {s['movies_tb']:.1f} TB  TV {s['tv_tb']:.1f} TB  Other {s['other_tb']:.1f} TB"
     )
 
     secs, wake_at = next_sleep_secs()
-    print(f"[disk-stats] Next update at {wake_at.strftime('%H:%M')} ({secs / 3600:.1f}h)", flush=True)
+    log(f"Sleeping until {wake_at.strftime('%Y-%m-%d %H:%M')} ({secs / 3600:.1f}h)")
     time.sleep(secs)
