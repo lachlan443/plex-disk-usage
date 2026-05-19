@@ -3,8 +3,8 @@ services:
     build: .
     container_name: kometa-sidecar-disk-stats
     environment:
-      - TZ=${TZ}
-      - KOMETA_TIME=${KOMETA_TIME:-55 23,5,11,17 * * *}
+      - TZ=Australia/Sydney
+      - KOMETA_TIME=55 23,5,11,17 * * *
       - DATA_PATH=/data
       - MOVIES_PATH=/data/media/movies
       - TV_PATH=/data/media/tv
