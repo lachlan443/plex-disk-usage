@@ -1,8 +1,17 @@
 import os
 import subprocess
+import sys
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 from ruamel.yaml import YAML
+
+
+def log(level, msg):
+    print(f"[{datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}] [{level}] {msg}", flush=True)
+
+def info(msg):  log("INFO",  msg)
+def error(msg): log("ERROR", msg)
+
 
 CONFIG_DIR  = "/config"
 POSTER_PATH = f"{CONFIG_DIR}/disk_poster.jpg"
@@ -21,12 +30,10 @@ MOVIES_PATH = os.environ.get("MOVIES_PATH", "/data/media/movies")
 TV_PATH     = os.environ.get("TV_PATH",     "/data/media/tv")
 
 
-def log(msg):
-    print(f"[{datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}] [INFO] {msg}", flush=True)
-
-
 def df_stats(path):
     result = subprocess.run(["df", path], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"df failed for {path}: {result.stderr.strip()}")
     parts    = result.stdout.splitlines()[1].split()
     total_kb = int(parts[1])
     used_kb  = int(parts[2])
@@ -36,11 +43,13 @@ def df_stats(path):
 
 def du_bytes(path):
     result = subprocess.run(["du", "-sb", path], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"du failed for {path}: {result.stderr.strip()}")
     return int(result.stdout.split()[0])
 
 
 def get_stats():
-    log("Checking disk usage")
+    info("Checking disk usage")
     used, total, used_pct = df_stats(DATA_PATH)
     movies = du_bytes(MOVIES_PATH)
     tv     = du_bytes(TV_PATH)
@@ -63,7 +72,7 @@ def get_stats():
 
 
 def generate_poster(used_pct):
-    log("Generating poster")
+    info("Generating poster")
     W, H = 1000, 1500
     img  = Image.new("RGB", (W, H), BG)
     draw = ImageDraw.Draw(img)
@@ -82,7 +91,7 @@ def generate_poster(used_pct):
 
 
 def update_yaml(s):
-    log("Updating collection YAML")
+    info("Updating collection YAML")
     now     = datetime.now().strftime("%b %d %Y %H:%M")
     summary = (
         f"{s['used_pct']}% used ({s['used_tb']:.1f} / {s['total_tb']:.1f} TB) | Movies {s['movies_tb']:.1f} TB ({s['movies_pct']:.0f}%) · TV {s['tv_tb']:.1f} TB ({s['tv_pct']:.0f}%) · Other {s['other_tb']:.1f} TB ({s['other_pct']:.0f}%)\n"
@@ -100,10 +109,14 @@ def update_yaml(s):
         yaml.dump(data, f)
 
 
-s = get_stats()
-generate_poster(s["used_pct"])
-update_yaml(s)
-log(
-    f"Done: {s['used_pct']}% used ({s['used_tb']:.1f} / {s['total_tb']:.1f} TB) | "
-    f"Movies {s['movies_tb']:.1f} TB  TV {s['tv_tb']:.1f} TB  Other {s['other_tb']:.1f} TB"
-)
+try:
+    s = get_stats()
+    generate_poster(s["used_pct"])
+    update_yaml(s)
+    info(
+        f"Done: {s['used_pct']}% used ({s['used_tb']:.1f} / {s['total_tb']:.1f} TB) | "
+        f"Movies {s['movies_tb']:.1f} TB  TV {s['tv_tb']:.1f} TB  Other {s['other_tb']:.1f} TB"
+    )
+except Exception as e:
+    error(str(e))
+    sys.exit(1)
