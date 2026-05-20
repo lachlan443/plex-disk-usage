@@ -17,7 +17,7 @@ RUN case "${TARGETARCH}" in \
 RUN pip install --no-cache-dir pillow ruamel.yaml
 
 COPY entrypoint.sh /entrypoint.sh
-COPY kometa-config/generate_poster.py /app/generate_poster.py
+COPY src/generate_poster.py /app/generate_poster.py
 RUN chmod +x /entrypoint.sh
 
 ENV TZ=UTC

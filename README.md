@@ -4,7 +4,7 @@ Displays live server storage stats as a collection inside Plex using [Kometa](ht
 
 ## What it looks like
 
-![Plex library view](disk_poster.png)
+![Plex library view](assets/disk_poster.png)
 
 In your Plex Movies and TV libraries, a pinned collection called **Disk Usage** appears at the top. Opening the collection shows a breakdown in the description:
 
@@ -15,18 +15,22 @@ Updated: May 15 2026 18:00
 
 ## How it works
 
-A sidecar container runs alongside Kometa. It reads `KOMETA_TIME` from the environment, sleeps until 5 minutes before each scheduled run, then updates the collection's cover image and description. Kometa then runs as normal and pushes the changes to Plex.
+A sidecar container runs alongside Kometa. It runs on a cron schedule defined by `KOMETA_TIME`, updating the collection's cover image and description shortly before each Kometa run. Kometa then runs as normal and pushes the changes to Plex.
 
 ## Repository structure
 
 ```
 kometa-disk-usage/
+├── src/
+│   └── generate_poster.py   # sidecar script, baked into the container image
 ├── kometa-config/
-│   ├── generate_poster.py   # sidecar script. runs inside the sidecar container
 │   ├── disk_usage.yml       # Kometa collection definition
 │   └── disk_poster.jpg      # generated poster example
-├── compose.yaml             # sidecar service. merge into your existing compose file
-└── disk_poster.png          # Plex library screenshot
+├── assets/
+│   └── disk_poster.png      # Plex library screenshot
+├── Dockerfile
+├── entrypoint.sh
+└── compose.yaml             # sidecar service, merge into your existing compose file
 ```
 
 ---
@@ -45,7 +49,7 @@ kometa-disk-usage/
 
 ### 1. Copy the Kometa config files
 
-Copy `generate_poster.py` and `disk_usage.yml` from `kometa-config/` into the directory you have bind mounted as `/config` inside your Kometa container.
+Copy `disk_usage.yml` from `kometa-config/` into the directory you have bind mounted as `/config` inside your Kometa container.
 
 ### 2. Register the collection with Kometa
 
@@ -66,25 +70,21 @@ libraries:
 
 ### 3. Add the sidecar to your compose file
 
-Add the `disk-stats` service alongside your existing `kometa` service:
+Clone this repo and add the `disk-stats` service alongside your existing `kometa` service:
 
 ```yaml
   disk-stats:
-    image: python:alpine
+    build: /path/to/plex-disk-usage
     container_name: kometa-sidecar-disk-stats
     environment:
-      - TZ=${TZ}
-      - KOMETA_TIME=${KOMETA_TIME}
+      - TZ=Australia/Sydney                    # your timezone
+      - KOMETA_TIME=55 23,5,11,17 * * *        # cron schedule, 5 min before each Kometa run
       - DATA_PATH=/data                        # root mount point for total usage
       - MOVIES_PATH=/data/media/movies         # path to your movies folder
       - TV_PATH=/data/media/tv                 # path to your TV folder
     volumes:
       - /path/to/kometa/config:/config    # same bind mount as your Kometa container
       - /data:/data:ro                    # your media location
-    command: >
-      sh -c "apk add --no-cache ttf-dejavu &&
-             pip install pillow ruamel.yaml --quiet --no-cache-dir &&
-             python3 /config/generate_poster.py"
     restart: unless-stopped
 ```
 
@@ -99,8 +99,10 @@ docker logs kometa-sidecar-disk-stats
 ```
 
 ```
-[disk-stats] 73% used | Movies 3.1TB · TV 5.5TB · Other 1.4TB
-[disk-stats] Next update at 23:55 (5.4h)
+[2026-05-19T18:28:07] [INFO] Checking disk usage
+[2026-05-19T18:28:07] [INFO] Generating poster
+[2026-05-19T18:28:07] [INFO] Updating collection YAML
+[2026-05-19T18:28:07] [INFO] Done: 71% used (9.7 / 14.4 TB) | Movies 3.3 TB  TV 5.0 TB  Other 1.4 TB
 ```
 
 ### 5. Run Kometa (optional)
@@ -120,4 +122,4 @@ docker exec -it -e KOMETA_RUN=True kometa python3 kometa.py --run --collections-
 | `DATA_PATH` | `/data` | Root mount point. used for total disk usage via `df` |
 | `MOVIES_PATH` | `/data/media/movies` | Path to movies folder for size breakdown |
 | `TV_PATH` | `/data/media/tv` | Path to TV folder for size breakdown |
-| `KOMETA_TIME` | `00:00, 06:00, 12:00, 18:00` | Kometa's run schedule. sidecar updates 5 min before each run |
+| `KOMETA_TIME` | `55 23,5,11,17 * * *` | Cron schedule for when the sidecar runs. Set to 5 min before each Kometa run |
