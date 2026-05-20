@@ -35,10 +35,14 @@ def df_stats(path):
     if result.returncode != 0:
         raise RuntimeError(f"df failed for {path}: {result.stderr.strip()}")
     parts    = result.stdout.splitlines()[1].split()
-    total_kb = int(parts[1])
     used_kb  = int(parts[2])
+    avail_kb = int(parts[3])
     used_pct = int(parts[4].rstrip("%"))
-    return used_kb * 1024, total_kb * 1024, used_pct
+    # Use usable space (used + available) rather than raw total, so reserved
+    # blocks (ext4 reserves 5% by default) are excluded from all calculations
+    # and percentages stay consistent with df's own use%.
+    usable_kb = used_kb + avail_kb
+    return used_kb * 1024, usable_kb * 1024, used_pct
 
 
 def du_bytes(path):
